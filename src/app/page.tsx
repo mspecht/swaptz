@@ -1,8 +1,15 @@
+'use client';
+
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { getCurrentTimestamp } from '@/lib/timestamp';
 
 export default function LandingPage() {
-  const currentTimestamp = getCurrentTimestamp();
+  const [currentTimestamp, setCurrentTimestamp] = useState<number>(0);
+
+  useEffect(() => {
+    setCurrentTimestamp(getCurrentTimestamp());
+  }, []);
 
   return (
     <div className='container'>
@@ -22,21 +29,49 @@ export default function LandingPage() {
           Quick Start
         </h2>
         <div className='flex flex-wrap gap-4 justify-center'>
-          <Link href={`/${currentTimestamp}`} className='button'>
-            View Current Time
-          </Link>
-          <Link href={`/${currentTimestamp}?mode=date`} className='button'>
-            Date Only
-          </Link>
-          <Link href={`/${currentTimestamp}?mode=compact`} className='button'>
-            Compact
-          </Link>
-          <Link href={`/${currentTimestamp}?mode=iso`} className='button'>
-            ISO
-          </Link>
-          <Link href={`/${currentTimestamp}?mode=relative`} className='button'>
-            Relative
-          </Link>
+          {currentTimestamp > 0 ? (
+            <>
+              <Link href={`/${currentTimestamp}`} className='button'>
+                View Current Time
+              </Link>
+              <Link href={`/${currentTimestamp}?mode=date`} className='button'>
+                Date Only
+              </Link>
+              <Link
+                href={`/${currentTimestamp}?mode=compact`}
+                className='button'
+              >
+                Compact
+              </Link>
+              <Link href={`/${currentTimestamp}?mode=iso`} className='button'>
+                ISO
+              </Link>
+              <Link
+                href={`/${currentTimestamp}?mode=relative`}
+                className='button'
+              >
+                Relative
+              </Link>
+            </>
+          ) : (
+            <div className='flex flex-wrap gap-4 justify-center'>
+              <button className='button' disabled>
+                Loading...
+              </button>
+              <button className='button' disabled>
+                Loading...
+              </button>
+              <button className='button' disabled>
+                Loading...
+              </button>
+              <button className='button' disabled>
+                Loading...
+              </button>
+              <button className='button' disabled>
+                Loading...
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

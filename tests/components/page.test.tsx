@@ -302,8 +302,21 @@ describe('Landing Page', () => {
   });
 
   describe('User Interactions', () => {
+    it('should show quick start buttons after timestamp loads', async () => {
+      render(<Page />);
+
+      // Wait for the timestamp to load
+      await screen.findByText('View Current Time');
+
+      const currentTimeButton = screen.getByText('View Current Time');
+      expect(currentTimeButton).toBeInTheDocument();
+    });
+
     it('should allow clicking on quick start buttons', async () => {
       render(<Page />);
+
+      // Wait for the timestamp to load
+      await screen.findByText('View Current Time');
 
       const currentTimeButton = screen.getByRole('link', {
         name: 'View Current Time',

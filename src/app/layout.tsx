@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
 // Performance optimization: Preload critical resources
@@ -44,12 +44,16 @@ export const metadata: Metadata = {
     description:
       'Convert Unix timestamps to human-readable dates and times in any timezone, with multiple display modes for every use case.',
   },
-  viewport: 'width=device-width, initial-scale=1',
-  themeColor: '#2196f3',
-  colorScheme: 'light',
   icons: {
     icon: '/favicon.ico',
   },
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  themeColor: '#2196f3',
+  colorScheme: 'light',
 };
 
 export default function RootLayout({

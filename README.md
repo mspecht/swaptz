@@ -1,36 +1,50 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SwapTZ
 
-## Getting Started
+A modern, lightweight timestamp converter. Convert Unix timestamps to human-readable dates and times in any timezone with multiple display modes.
 
-First, run the development server:
+## Features
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- 🕐 Convert Unix timestamps to human-readable format
+- 🌍 Support for all timezones with grouped common timezones
+- 📱 Responsive design that works on all devices
+- ⚡ Fast client-side rendering for instant conversions
+- 🎨 Multiple display modes (default, date, compact, ISO, relative)
+- 🔄 Real-time timezone switching without page reloads
+
+## Display Modes
+
+- **Default**: `Sun 18 May 2025 at 10:30AM`
+- **Date**: `18 May 2025`
+- **Compact**: `18/05/2025 10:30`
+- **ISO**: `2025-05-18T10:30:00+10:00`
+- **Relative**: `in 2 days`
+
+## Usage
+
+### URL Structure
+
+```
+/                    # Landing page with usage instructions
+/{timestamp}         # Convert specific timestamp
+/{timestamp}?mode={mode}  # Convert with specific display mode
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Examples
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```
+/1747510600                    # Default format
+/1747510600?mode=date          # Date only
+/1747510600?mode=compact       # Compact format
+/1747510600?mode=iso           # ISO 8601 format
+/1747510600?mode=relative      # Relative time
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Valid Timestamps
 
-## Learn More
+- Positive integers only
+- Between 1970 and 2100
+- Examples: `1747510600`, `1609459200`, `2147483647`
 
-To learn more about Next.js, take a look at the following resources:
+## License
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+MIT License - see LICENSE file for details.

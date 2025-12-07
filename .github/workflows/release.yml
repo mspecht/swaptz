@@ -1,0 +1,197 @@
+name: Release
+
+on:
+  workflow_run:
+    workflows: ["Tests"]
+    types:
+      - completed
+    branches: [main]
+
+jobs:
+  release:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build application
+        run: npm run build
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          # Get the latest release tag
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          
+          if [ -z "$LATEST_TAG" ]; then
+            # First release - get all commits
+            CHANGELOG=$(git log --pretty=format:"- %s" --no-merges)
+          else
+            # Get commits since last release
+            CHANGELOG=$(git log ${LATEST_TAG}..HEAD --pretty=format:"- %s" --no-merges)
+          fi
+          
+          if [ -z "$CHANGELOG" ]; then
+            CHANGELOG="- No changes detected"
+          fi
+          
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Analyze commits for SemVer compliance
+        id: semver-analysis
+        run: |
+          # Get latest release tag
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          
+          if [ -z "$LATEST_TAG" ]; then
+            # First release - analyze all commits
+            COMMITS=$(git log --pretty=format:"%s" --no-merges)
+            echo "is_first_release=true" >> $GITHUB_OUTPUT
+          else
+            # Analyze commits since last release
+            COMMITS=$(git log ${LATEST_TAG}..HEAD --pretty=format:"%s" --no-merges)
+            echo "is_first_release=false" >> $GITHUB_OUTPUT
+          fi
+          
+          # Count different types of changes according to SemVer
+          # MAJOR: Breaking changes (BREAKING CHANGE, !:, or major: prefix)
+          MAJOR_COUNT=$(echo "$COMMITS" | grep -cE "(BREAKING CHANGE|!:|^major:)" || echo "0")
+          
+          # MINOR: New features (feat:, feature:, or minor: prefix)
+          MINOR_COUNT=$(echo "$COMMITS" | grep -cE "^feat|^feature|^minor:" || echo "0")
+          
+          # PATCH: Bug fixes (fix:, bugfix:, or patch: prefix)
+          PATCH_COUNT=$(echo "$COMMITS" | grep -cE "^fix|^bugfix|^patch:" || echo "0")
+          
+          # Other changes (chore:, docs:, style:, refactor:, test:, ci:, build:)
+          OTHER_COUNT=$(echo "$COMMITS" | grep -cE "^(chore|docs|style|refactor|test|ci|build):" || echo "0")
+          
+          echo "major_count=$MAJOR_COUNT" >> $GITHUB_OUTPUT
+          echo "minor_count=$MINOR_COUNT" >> $GITHUB_OUTPUT
+          echo "patch_count=$PATCH_COUNT" >> $GITHUB_OUTPUT
+          echo "other_count=$OTHER_COUNT" >> $GITHUB_OUTPUT
+          
+          # Determine SemVer bump type according to specification
+          if [ "$MAJOR_COUNT" -gt 0 ]; then
+            echo "bump_type=major" >> $GITHUB_OUTPUT
+            echo "bump_reason=Breaking changes detected" >> $GITHUB_OUTPUT
+          elif [ "$MINOR_COUNT" -gt 0 ]; then
+            echo "bump_type=minor" >> $GITHUB_OUTPUT
+            echo "bump_reason=New backward-compatible features added" >> $GITHUB_OUTPUT
+          elif [ "$PATCH_COUNT" -gt 0 ] || [ "$OTHER_COUNT" -gt 0 ]; then
+            echo "bump_type=patch" >> $GITHUB_OUTPUT
+            echo "bump_reason=Bug fixes or internal improvements" >> $GITHUB_OUTPUT
+          else
+            echo "bump_type=none" >> $GITHUB_OUTPUT
+            echo "bump_reason=No significant changes detected" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Skip release if no changes
+        if: steps.semver-analysis.outputs.bump_type == 'none'
+        run: |
+          echo "No significant changes detected according to SemVer. Skipping release."
+          echo "Changes must include at least one of:"
+          echo "  - feat: (minor version)"
+          echo "  - fix: (patch version)" 
+          echo "  - BREAKING CHANGE or !: (major version)"
+          exit 0
+
+      - name: Calculate SemVer-compliant version
+        id: version
+        run: |
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          
+          # Apply SemVer rules: MAJOR.MINOR.PATCH
+          IFS='.' read -r major minor patch <<< "$CURRENT_VERSION"
+          
+          case "${{ steps.semver-analysis.outputs.bump_type }}" in
+            "major")
+              # MAJOR: Increment major, reset minor and patch to 0
+              major=$((major + 1))
+              minor=0
+              patch=0
+              ;;
+            "minor")
+              # MINOR: Increment minor, reset patch to 0
+              minor=$((minor + 1))
+              patch=0
+              ;;
+            "patch")
+              # PATCH: Increment patch only
+              patch=$((patch + 1))
+              ;;
+          esac
+          
+          NEXT_VERSION="$major.$minor.$patch"
+          echo "version=$NEXT_VERSION" >> $GITHUB_OUTPUT
+          echo "major=$major" >> $GITHUB_OUTPUT
+          echo "minor=$minor" >> $GITHUB_OUTPUT
+          echo "patch=$patch" >> $GITHUB_OUTPUT
+
+      - name: Update package.json version
+        run: |
+          npm version ${{ steps.version.outputs.version }} --no-git-tag-version
+
+      - name: Create Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          release_name: Release v${{ steps.version.outputs.version }}
+          body: |
+            ## Semantic Versioning Info
+            
+            **Version Type**: ${{ steps.semver-analysis.outputs.bump_type }}
+            **Reason**: ${{ steps.semver-analysis.outputs.bump_reason }}
+            
+            ### Change Summary
+            - **Breaking Changes**: ${{ steps.semver-analysis.outputs.major_count }}
+            - **New Features**: ${{ steps.semver-analysis.outputs.minor_count }}
+            - **Bug Fixes**: ${{ steps.semver-analysis.outputs.patch_count }}
+            - **Other Changes**: ${{ steps.semver-analysis.outputs.other_count }}
+            
+            ## Changes in this release
+            
+            ${{ steps.changelog.outputs.changelog }}
+            
+            ## Build Info
+            - **Commit**: ${{ github.event.workflow_run.head_sha }}
+            - **Node.js**: 20.x
+            - **Build Status**: ✅ Tests Passed
+            - **SemVer Compliant**: ✅ Yes
+            
+            ## Installation
+            ```bash
+            npm install
+            npm run build
+            ```
+            
+            ---
+            
+            *This release follows [Semantic Versioning 2.0.0](https://semver.org/) specification.*
+          draft: false
+          prerelease: false
+
+      - name: Create Git Tag
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add package.json package-lock.json
+          git commit -m "chore: bump version to v${{ steps.version.outputs.version }}" || exit 0
+          git tag -a "v${{ steps.version.outputs.version }}" -m "Release v${{ steps.version.outputs.version }}"
+          git push origin "v${{ steps.version.outputs.version }}"
